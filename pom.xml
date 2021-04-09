@@ -11,6 +11,12 @@
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
   </properties>
+  <distributionManagement>
+    <site>
+      <id>${project.artifactId}-site</id>
+      <url>${project.baseUri}</url>
+    </site>
+  </distributionManagement>
   <modules>
     <module>core</module>
     <module>service</module>
