@@ -13,8 +13,8 @@
   </properties>
   <distributionManagement>
     <site>
-      <id>${project.artifactId}-site</id>
-      <url>${project.baseUri}</url>
+      <id>maven-test-site</id>
+      <url>http://localhost:8080/job/test-job/Maven_20site/</url>
     </site>
   </distributionManagement>
   <modules>
