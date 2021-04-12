@@ -5,7 +5,9 @@
   <artifactId>maven-test</artifactId>
   <packaging>pom</packaging>
   <version>1.0</version>
+
   <name>maven-test</name>
+  <url>http://localhost:8080/job/test-job/Maven_20site/</url>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -59,8 +61,24 @@
           <version>3.7.1</version>
         </plugin>
         <plugin>
+          <artifactId>maven-plugin-plugin</artifactId>
+          <version>3.5.1</version>
+          <executions>
+            <execution>
+              <id>default-descriptor</id>
+              <phase>process-classes</phase>
+            </execution>
+            <execution>
+              <id>generated-helpmojo</id>
+              <goals>
+                <goal>helpmojo</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
           <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.0.0</version>
+          <version>3.1.1</version>
         </plugin>
       </plugins>
     </pluginManagement>
