@@ -1,2 +1,7 @@
 .devcontainer/
+.vscode/
+.settings/
+.project
+.classpath
+
 target/
