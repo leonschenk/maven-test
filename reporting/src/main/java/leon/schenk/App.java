@@ -13,6 +13,7 @@ import java.util.Locale;
 
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.doxia.sink.Sink;
+import org.apache.maven.doxia.sink.SinkFactory;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -73,21 +74,59 @@ public class App extends AbstractMavenReport
         // Content
         mainSink.paragraph();
         mainSink.list();
+        
         final ClassLoader classLoader = getProjectClassLoader();
-        try {
-            final Class<?> clazz = classLoader.loadClass(springApplicationClass);
-            final Class<?> springApplicationClass = classLoader.loadClass("org.springframework.boot.SpringApplication");
-            final Object applicationContext = springApplicationClass.getMethod("run", Class.class, String[].class).invoke(null, clazz, new String[]{});
+        final Thread thread = new Thread(() -> {
+            try {
+                final Class<?> clazz = classLoader.loadClass(springApplicationClass);
+                final Class<?> springApplicationClass = classLoader.loadClass("org.springframework.boot.SpringApplication");
+                final Object springApplication = springApplicationClass.getConstructor(classLoader.loadClass("org.springframework.core.io.ResourceLoader"), Class[].class)
+                    .newInstance(
+                        null,
+                        new Class[]{clazz}
+                    );
+                final Object applicationContext = springApplicationClass.getMethod("run", String[].class).invoke(springApplication, (Object)new String[]{});
+                final Object app = applicationContext.getClass().getMethod("getBean", Class.class).invoke(applicationContext, clazz);
 
+                print(mainSink, getSinkFactory(), applicationContext);
+
+                applicationContext.getClass().getMethod("close").invoke(applicationContext);
+
+                getLog().info(app.toString());
+                getLog().info(app.getClass().getMethods().toString());
+            } catch (final Exception e) {
+                throw new IllegalStateException(e);
+            }
+        });
+        thread.setContextClassLoader(classLoader);
+        thread.start();
+        try {
+            thread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        mainSink.paragraph_();
+
+        // Close
+        mainSink.section1_();
+        mainSink.body_();
+    }
+
+    private void print(final Sink mainSink, final SinkFactory sinkFactory, final Object applicationContext) {
+        try {
             final String[] beanDefinitionNames = (String[])applicationContext.getClass().getMethod("getBeanDefinitionNames").invoke(applicationContext);
             final Object beanFactory = applicationContext.getClass().getMethod("getBeanFactory").invoke(applicationContext);
             final Object environment = applicationContext.getClass().getMethod("getEnvironment").invoke(applicationContext);
             final Iterable<?> propertySources = (Iterable<?>)environment.getClass().getMethod("getPropertySources").invoke(environment);
             final List<String> propertyNames = new ArrayList<>();
             for (Object propertySource : propertySources) {
-                if (classLoader.loadClass("org.springframework.core.env.EnumerablePropertySource").isInstance(propertySource)) {
-                    final String[] propertyNamesL = (String[])propertySource.getClass().getMethod("getPropertyNames").invoke(propertySource);
-                    propertyNames.addAll(Arrays.asList(propertyNamesL));
+                getLog().info(propertySource.toString());
+                if (applicationContext.getClass().getClassLoader().loadClass("org.springframework.core.env.EnumerablePropertySource").isInstance(propertySource)) {
+                    if (!Arrays.asList("systemProperties", "systemEnvironment").contains(propertySource.getClass().getMethod("getName").invoke(propertySource).toString())) {
+                        final String[] propertyNamesL = (String[])propertySource.getClass().getMethod("getPropertyNames").invoke(propertySource);
+                        propertyNames.addAll(Arrays.asList(propertyNamesL));
+                        getLog().info(propertySource.toString());
+                    }
                 }
             }
 
@@ -116,7 +155,16 @@ public class App extends AbstractMavenReport
                 perBeanSink.text("Spring bean - " + beanDefinitionName);
                 perBeanSink.sectionTitle1_();
                 perBeanSink.paragraph();
+                final Object resolvableType = beanDefinition.getClass().getMethod("getResolvableType").invoke(beanDefinition);
+                final Class<?> rawClazz = resolvableType == null ? null : (Class<?>)resolvableType.getClass().getMethod("getRawClass").invoke(resolvableType);
+                perBeanSink.text("Class: " + rawClazz);
+                perBeanSink.text("Annotations: " + Arrays.toString(rawClazz == null ? null : rawClazz.getAnnotations()));
+                perBeanSink.paragraph_();
+                perBeanSink.paragraph();
                 perBeanSink.text(beanDefinition.toString());
+                perBeanSink.paragraph_();
+                perBeanSink.paragraph();
+                perBeanSink.text(String.valueOf(beanDefinition.getClass().getMethod("getResource").invoke(beanDefinition)));
                 perBeanSink.paragraph_();
                 perBeanSink.body_();
                 perBeanSink.close();
@@ -125,21 +173,16 @@ public class App extends AbstractMavenReport
             mainSink.list();
             for (final String property : propertyNames) {
                 mainSink.listItem();
-                mainSink.text(property + " - " + environment.getClass().getMethod("getProperty", String.class).invoke(environment, property));
+                mainSink.text(property + " - ");
+                mainSink.text(environment.getClass().getMethod("getProperty", String.class).invoke(environment, property).toString());
                 mainSink.listItem_();
                 getLog().info(String.format("Property: %s", property));
             }
-            mainSink.link_();
+            mainSink.list_();
             getLog().info(String.format("Application Context %s", applicationContext));
         } catch (Exception e) {
             e.printStackTrace();
         }
-        mainSink.list_();
-        mainSink.paragraph_();
-
-        // Close
-        mainSink.section1_();
-        mainSink.body_();
     }
 
     private ClassLoader getProjectClassLoader() throws MavenReportException {
@@ -149,7 +192,7 @@ public class App extends AbstractMavenReport
             for (int i = 0; i < classpathElements.size(); i++) {
                 urls[i] = new File(classpathElements.get(i)).toURI().toURL();
             }
-            return new URLClassLoader(urls, this.getClass().getClassLoader());
+            return new URLClassLoader(urls);
         } catch(final Exception e) {
             throw new MavenReportException("Kan het project niet laden.", e);
         }
