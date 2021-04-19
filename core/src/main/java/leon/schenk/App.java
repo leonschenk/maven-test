@@ -4,7 +4,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * Hello world!
@@ -19,7 +19,8 @@ public class App implements InitializingBean
     public static void main( String[] args )
     {
         final SpringApplication sa = new SpringApplication(App.class);
-        sa.run();
+        ConfigurableApplicationContext run = sa.run();
+        System.out.println(run);
     }
 
     @Override
