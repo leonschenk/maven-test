@@ -1,5 +1,5 @@
 package leon.schenk;
- 
+
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -20,14 +20,13 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.reporting.AbstractMavenReport;
 import org.apache.maven.reporting.MavenReportException;
- 
+
 /**
  * Says "Hi" to the user.
  *
  */
 @Mojo(name = "sayhi", defaultPhase = LifecyclePhase.SITE, requiresDependencyResolution = ResolutionScope.RUNTIME, requiresProject = true, threadSafe = false)
-public class App extends AbstractMavenReport 
-{
+public class App extends AbstractMavenReport {
     @Parameter(readonly = true)
     private String springApplicationClass;
 
@@ -62,31 +61,33 @@ public class App extends AbstractMavenReport
         mainSink.text("Spring components");
         mainSink.title_();
         mainSink.head_();
- 
+
         mainSink.body();
- 
+
         // Heading 1
         mainSink.section1();
         mainSink.sectionTitle1();
         mainSink.text("Spring components");
         mainSink.sectionTitle1_();
- 
+
         // Content
         mainSink.paragraph();
         mainSink.list();
-        
+
         final ClassLoader classLoader = getProjectClassLoader();
         final Thread thread = new Thread(() -> {
             try {
                 final Class<?> clazz = classLoader.loadClass(springApplicationClass);
-                final Class<?> springApplicationClass = classLoader.loadClass("org.springframework.boot.SpringApplication");
-                final Object springApplication = springApplicationClass.getConstructor(classLoader.loadClass("org.springframework.core.io.ResourceLoader"), Class[].class)
-                    .newInstance(
-                        null,
-                        new Class[]{clazz}
-                    );
-                final Object applicationContext = springApplicationClass.getMethod("run", String[].class).invoke(springApplication, (Object)new String[]{});
-                final Object app = applicationContext.getClass().getMethod("getBean", Class.class).invoke(applicationContext, clazz);
+                final Class<?> springApplicationClass = classLoader
+                        .loadClass("org.springframework.boot.SpringApplication");
+                final Object springApplication = springApplicationClass
+                        .getConstructor(classLoader.loadClass("org.springframework.core.io.ResourceLoader"),
+                                Class[].class)
+                        .newInstance(null, new Class[] { clazz });
+                final Object applicationContext = springApplicationClass.getMethod("run", String[].class)
+                        .invoke(springApplication, (Object) new String[] {});
+                final Object app = applicationContext.getClass().getMethod("getBean", Class.class)
+                        .invoke(applicationContext, clazz);
 
                 print(mainSink, getSinkFactory(), applicationContext);
 
@@ -114,16 +115,24 @@ public class App extends AbstractMavenReport
 
     private void print(final Sink mainSink, final SinkFactory sinkFactory, final Object applicationContext) {
         try {
-            final String[] beanDefinitionNames = (String[])applicationContext.getClass().getMethod("getBeanDefinitionNames").invoke(applicationContext);
-            final Object beanFactory = applicationContext.getClass().getMethod("getBeanFactory").invoke(applicationContext);
-            final Object environment = applicationContext.getClass().getMethod("getEnvironment").invoke(applicationContext);
-            final Iterable<?> propertySources = (Iterable<?>)environment.getClass().getMethod("getPropertySources").invoke(environment);
+            final String[] beanDefinitionNames = (String[]) applicationContext.getClass()
+                    .getMethod("getBeanDefinitionNames").invoke(applicationContext);
+            final Object beanFactory = applicationContext.getClass().getMethod("getBeanFactory")
+                    .invoke(applicationContext);
+            final Object environment = applicationContext.getClass().getMethod("getEnvironment")
+                    .invoke(applicationContext);
+            final Iterable<?> propertySources = (Iterable<?>) environment.getClass().getMethod("getPropertySources")
+                    .invoke(environment);
             final List<String> propertyNames = new ArrayList<>();
             for (Object propertySource : propertySources) {
                 getLog().info(propertySource.toString());
-                if (applicationContext.getClass().getClassLoader().loadClass("org.springframework.core.env.EnumerablePropertySource").isInstance(propertySource)) {
-                    if (!Arrays.asList("systemProperties", "systemEnvironment").contains(propertySource.getClass().getMethod("getName").invoke(propertySource).toString())) {
-                        final String[] propertyNamesL = (String[])propertySource.getClass().getMethod("getPropertyNames").invoke(propertySource);
+                if (applicationContext.getClass().getClassLoader()
+                        .loadClass("org.springframework.core.env.EnumerablePropertySource")
+                        .isInstance(propertySource)) {
+                    if (!Arrays.asList("systemProperties", "systemEnvironment").contains(
+                            propertySource.getClass().getMethod("getName").invoke(propertySource).toString())) {
+                        final String[] propertyNamesL = (String[]) propertySource.getClass()
+                                .getMethod("getPropertyNames").invoke(propertySource);
                         propertyNames.addAll(Arrays.asList(propertyNamesL));
                         getLog().info(propertySource.toString());
                     }
@@ -133,13 +142,16 @@ public class App extends AbstractMavenReport
             Arrays.sort(beanDefinitionNames);
             Collections.sort(propertyNames);
             for (final String beanDefinitionName : beanDefinitionNames) {
-                final Sink perBeanSink = getSinkFactory().createSink(outputDirectory, hashMD5(beanDefinitionName) + ".html");
-                final Object beanDefinition = beanFactory.getClass().getMethod("getBeanDefinition", String.class).invoke(beanFactory, beanDefinitionName);
+                final Sink perBeanSink = getSinkFactory().createSink(outputDirectory,
+                        hashMD5(beanDefinitionName) + ".html");
+                final Object beanDefinition = beanFactory.getClass().getMethod("getBeanDefinition", String.class)
+                        .invoke(beanFactory, beanDefinitionName);
                 getLog().info(String.format("Bean %s is defined by: %s", beanDefinitionName, beanDefinition));
 
                 mainSink.listItem();
                 mainSink.link(hashMD5(beanDefinitionName) + ".html");
-                mainSink.text(beanDefinitionName + " - " + beanDefinition.getClass().getMethod("getBeanClassName").invoke(beanDefinition));
+                mainSink.text(beanDefinitionName + " - "
+                        + beanDefinition.getClass().getMethod("getBeanClassName").invoke(beanDefinition));
                 mainSink.link_();
                 mainSink.listItem_();
                 getLog().info(String.format("Bean: %s", beanDefinitionName));
@@ -155,16 +167,20 @@ public class App extends AbstractMavenReport
                 perBeanSink.text("Spring bean - " + beanDefinitionName);
                 perBeanSink.sectionTitle1_();
                 perBeanSink.paragraph();
-                final Object resolvableType = beanDefinition.getClass().getMethod("getResolvableType").invoke(beanDefinition);
-                final Class<?> rawClazz = resolvableType == null ? null : (Class<?>)resolvableType.getClass().getMethod("getRawClass").invoke(resolvableType);
+                final Object resolvableType = beanDefinition.getClass().getMethod("getResolvableType")
+                        .invoke(beanDefinition);
+                final Class<?> rawClazz = resolvableType == null ? null
+                        : (Class<?>) resolvableType.getClass().getMethod("getRawClass").invoke(resolvableType);
                 perBeanSink.text("Class: " + rawClazz);
-                perBeanSink.text("Annotations: " + Arrays.toString(rawClazz == null ? null : rawClazz.getAnnotations()));
+                perBeanSink
+                        .text("Annotations: " + Arrays.toString(rawClazz == null ? null : rawClazz.getAnnotations()));
                 perBeanSink.paragraph_();
                 perBeanSink.paragraph();
                 perBeanSink.text(beanDefinition.toString());
                 perBeanSink.paragraph_();
                 perBeanSink.paragraph();
-                perBeanSink.text(String.valueOf(beanDefinition.getClass().getMethod("getResource").invoke(beanDefinition)));
+                perBeanSink.text(
+                        String.valueOf(beanDefinition.getClass().getMethod("getResource").invoke(beanDefinition)));
                 perBeanSink.paragraph_();
                 perBeanSink.body_();
                 perBeanSink.close();
@@ -174,7 +190,8 @@ public class App extends AbstractMavenReport
             for (final String property : propertyNames) {
                 mainSink.listItem();
                 mainSink.text(property + " - ");
-                mainSink.text(environment.getClass().getMethod("getProperty", String.class).invoke(environment, property).toString());
+                mainSink.text(environment.getClass().getMethod("getProperty", String.class)
+                        .invoke(environment, property).toString());
                 mainSink.listItem_();
                 getLog().info(String.format("Property: %s", property));
             }
@@ -193,7 +210,7 @@ public class App extends AbstractMavenReport
                 urls[i] = new File(classpathElements.get(i)).toURI().toURL();
             }
             return new URLClassLoader(urls);
-        } catch(final Exception e) {
+        } catch (final Exception e) {
             throw new MavenReportException("Kan het project niet laden.", e);
         }
     }
@@ -207,7 +224,7 @@ public class App extends AbstractMavenReport
 
     private String convertToHex(final byte[] input) {
         final StringBuilder sb = new StringBuilder();
-        for(int i=0; i < input.length; i++) {
+        for (int i = 0; i < input.length; i++) {
             sb.append(String.format("%02X", input[i]));
         }
         return sb.toString();
