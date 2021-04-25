@@ -26,7 +26,7 @@ import org.apache.maven.reporting.MavenReportException;
  *
  */
 @Mojo(name = "sayhi", defaultPhase = LifecyclePhase.SITE, requiresDependencyResolution = ResolutionScope.RUNTIME, requiresProject = true, threadSafe = false)
-public class App extends AbstractMavenReport {
+public class ReportingApp extends AbstractMavenReport {
     @Parameter(readonly = true)
     private String springApplicationClass;
 

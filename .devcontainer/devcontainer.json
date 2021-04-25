@@ -10,6 +10,7 @@
 	"settings": { 
 		"terminal.integrated.shell.linux": "/bin/bash",
 		"java.home": "/docker-java-home",
+		"java.configuration.updateBuildConfiguration": "interactive",
 		"java.configuration.runtimes": [
 			{"name": "JavaSE-1.8", "path": "/usr/local/sdkman/candidates/java/current"}
 		],
