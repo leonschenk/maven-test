@@ -5,11 +5,8 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import org.codehaus.plexus.personality.plexus.lifecycle.phase.Configurable;
 
 import leon.schenk.interfaces.BeanDefinition;
 import leon.schenk.interfaces.ConfigurableApplicationContext;
@@ -60,15 +57,13 @@ public class ProxyGenerator {
         } else if (interfaceClass.isInterface()) {
             return Proxy.newProxyInstance(this.getClass().getClassLoader(), new Class<?>[]{interfaceClass}, new TargetContextInvocationHandler(target, targetClass));
         } else if (interfaceClasses.stream().map(clazz -> clazz.getAnnotation(leon.schenk.ProxyInterface.class).target()).map(clazz -> referenceClass(clazz)).anyMatch(clazz -> clazz.isInstance(target))) {
-            final List<Class<?>> interfaceInstances = interfaceClasses.stream()
+            final Class<?>[] interfaceInstances = interfaceClasses.stream()
                 .filter(clazz -> referenceClass(clazz.getAnnotation(leon.schenk.ProxyInterface.class).target()).isInstance(target))
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()).toArray(new Class<?>[]{});
 
-            final List<Class<?>> translatedInterfaces =  interfaceInstances.stream()
-                .map(clazz -> referenceClass(clazz.getAnnotation(leon.schenk.ProxyInterface.class).target()))
-                .collect(Collectors.toList());
+            final Class<?>[] translatedInterfaces = translateToTargetTypes(interfaceInstances);
 
-            return Proxy.newProxyInstance(this.getClass().getClassLoader(), interfaceInstances.toArray(new Class<?>[]{}), new TargetContextInvocationHandler(target, translatedInterfaces.toArray(new Class<?>[]{})));
+            return Proxy.newProxyInstance(this.getClass().getClassLoader(), interfaceInstances, new TargetContextInvocationHandler(target, translatedInterfaces));
         } else {
             return target;
         }
@@ -162,10 +157,10 @@ public class ProxyGenerator {
         }
     }
 
-    private Class<?>[] translateToTargetTypes(final Class<?>[] types) throws ClassNotFoundException {
+    private Class<?>[] translateToTargetTypes(final Class<?>[] types) {
         final Class<?>[] interfaceTypes = types.clone();
         for (int i = 0; i < interfaceTypes.length; i++) {
-            interfaceTypes[i] = interfaceTypes[i].isAnnotationPresent(leon.schenk.ProxyInterface.class) ? classLoader.loadClass(interfaceTypes[i].getAnnotation(leon.schenk.ProxyInterface.class).target()) : interfaceTypes[i];
+            interfaceTypes[i] = interfaceTypes[i].isAnnotationPresent(leon.schenk.ProxyInterface.class) ? referenceClass(interfaceTypes[i].getAnnotation(leon.schenk.ProxyInterface.class).target()) : interfaceTypes[i];
         }
         return interfaceTypes;
     }
