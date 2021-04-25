@@ -21,6 +21,16 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.reporting.AbstractMavenReport;
 import org.apache.maven.reporting.MavenReportException;
 
+import leon.schenk.interfaces.BeanDefinition;
+import leon.schenk.interfaces.ConfigurableApplicationContext;
+import leon.schenk.interfaces.ConfigurableEnvironment;
+import leon.schenk.interfaces.ConfigurableListableBeanFactory;
+import leon.schenk.interfaces.EnumerablePropertySource;
+import leon.schenk.interfaces.MutablePropertySources;
+import leon.schenk.interfaces.PropertySource;
+import leon.schenk.interfaces.ResolvableType;
+import leon.schenk.interfaces.SpringApplication;
+
 /**
  * Says "Hi" to the user.
  *
@@ -75,26 +85,17 @@ public class ReportingApp extends AbstractMavenReport {
         mainSink.list();
 
         final ClassLoader classLoader = getProjectClassLoader();
+        final ProxyGenerator proxyGenerator = new ProxyGenerator(classLoader);
+
         final Thread thread = new Thread(() -> {
             try {
-                final Class<?> clazz = classLoader.loadClass(springApplicationClass);
-                final Class<?> springApplicationClass = classLoader
-                        .loadClass("org.springframework.boot.SpringApplication");
-                final Object springApplication = springApplicationClass
-                        .getConstructor(classLoader.loadClass("org.springframework.core.io.ResourceLoader"),
-                                Class[].class)
-                        .newInstance(null, new Class[] { clazz });
-                final Object applicationContext = springApplicationClass.getMethod("run", String[].class)
-                        .invoke(springApplication, (Object) new String[] {});
-                final Object app = applicationContext.getClass().getMethod("getBean", Class.class)
-                        .invoke(applicationContext, clazz);
+                final SpringApplication springApplication = proxyGenerator.staticContext(SpringApplication.class).construct(proxyGenerator.referenceClass(springApplicationClass));
 
-                print(mainSink, getSinkFactory(), applicationContext);
+                final ConfigurableApplicationContext applicationContext = springApplication.run();
 
-                applicationContext.getClass().getMethod("close").invoke(applicationContext);
+                print(proxyGenerator, mainSink, getSinkFactory(), applicationContext);
 
-                getLog().info(app.toString());
-                getLog().info(app.getClass().getMethods().toString());
+                applicationContext.close();
             } catch (final Exception e) {
                 throw new IllegalStateException(e);
             }
@@ -113,28 +114,21 @@ public class ReportingApp extends AbstractMavenReport {
         mainSink.body_();
     }
 
-    private void print(final Sink mainSink, final SinkFactory sinkFactory, final Object applicationContext) {
+    private void print(final ProxyGenerator proxyGenerator, final Sink mainSink, final SinkFactory sinkFactory, final ConfigurableApplicationContext applicationContext) {
         try {
-            final String[] beanDefinitionNames = (String[]) applicationContext.getClass()
-                    .getMethod("getBeanDefinitionNames").invoke(applicationContext);
-            final Object beanFactory = applicationContext.getClass().getMethod("getBeanFactory")
-                    .invoke(applicationContext);
-            final Object environment = applicationContext.getClass().getMethod("getEnvironment")
-                    .invoke(applicationContext);
-            final Iterable<?> propertySources = (Iterable<?>) environment.getClass().getMethod("getPropertySources")
-                    .invoke(environment);
+            final String[] beanDefinitionNames = applicationContext.getBeanDefinitionNames();
+            final ConfigurableListableBeanFactory beanFactory = applicationContext.getBeanFactory();
+            final ConfigurableEnvironment environment = applicationContext.getEnvironment();
+
+            final MutablePropertySources propertySources = environment.getPropertySources();
+
             final List<String> propertyNames = new ArrayList<>();
-            for (Object propertySource : propertySources) {
+            for (final PropertySource<?> propertySource : propertySources) {
                 getLog().info(propertySource.toString());
-                if (applicationContext.getClass().getClassLoader()
-                        .loadClass("org.springframework.core.env.EnumerablePropertySource")
-                        .isInstance(propertySource)) {
-                    if (!Arrays.asList("systemProperties", "systemEnvironment").contains(
-                            propertySource.getClass().getMethod("getName").invoke(propertySource).toString())) {
-                        final String[] propertyNamesL = (String[]) propertySource.getClass()
-                                .getMethod("getPropertyNames").invoke(propertySource);
+                if (propertySource instanceof EnumerablePropertySource) {
+                    if (!Arrays.asList("systemProperties", "systemEnvironment").contains(propertySource.getName())) {
+                        final String[] propertyNamesL = ((EnumerablePropertySource<?>)propertySource).getPropertyNames();
                         propertyNames.addAll(Arrays.asList(propertyNamesL));
-                        getLog().info(propertySource.toString());
                     }
                 }
             }
@@ -142,16 +136,13 @@ public class ReportingApp extends AbstractMavenReport {
             Arrays.sort(beanDefinitionNames);
             Collections.sort(propertyNames);
             for (final String beanDefinitionName : beanDefinitionNames) {
-                final Sink perBeanSink = getSinkFactory().createSink(outputDirectory,
-                        hashMD5(beanDefinitionName) + ".html");
-                final Object beanDefinition = beanFactory.getClass().getMethod("getBeanDefinition", String.class)
-                        .invoke(beanFactory, beanDefinitionName);
+                final Sink perBeanSink = getSinkFactory().createSink(outputDirectory, hashMD5(beanDefinitionName) + ".html");
+                final BeanDefinition beanDefinition = beanFactory.getBeanDefinition(beanDefinitionName);
                 getLog().info(String.format("Bean %s is defined by: %s", beanDefinitionName, beanDefinition));
 
                 mainSink.listItem();
                 mainSink.link(hashMD5(beanDefinitionName) + ".html");
-                mainSink.text(beanDefinitionName + " - "
-                        + beanDefinition.getClass().getMethod("getBeanClassName").invoke(beanDefinition));
+                mainSink.text(beanDefinitionName + " - " + beanDefinition.getBeanClassName());
                 mainSink.link_();
                 mainSink.listItem_();
                 getLog().info(String.format("Bean: %s", beanDefinitionName));
@@ -167,20 +158,16 @@ public class ReportingApp extends AbstractMavenReport {
                 perBeanSink.text("Spring bean - " + beanDefinitionName);
                 perBeanSink.sectionTitle1_();
                 perBeanSink.paragraph();
-                final Object resolvableType = beanDefinition.getClass().getMethod("getResolvableType")
-                        .invoke(beanDefinition);
-                final Class<?> rawClazz = resolvableType == null ? null
-                        : (Class<?>) resolvableType.getClass().getMethod("getRawClass").invoke(resolvableType);
+                final ResolvableType resolvableType = beanDefinition.getResolvableType();
+                final Class<?> rawClazz = resolvableType == null ? null : resolvableType.getRawClass();
                 perBeanSink.text("Class: " + rawClazz);
-                perBeanSink
-                        .text("Annotations: " + Arrays.toString(rawClazz == null ? null : rawClazz.getAnnotations()));
+                perBeanSink.text("Annotations: " + Arrays.toString(rawClazz == null ? null : rawClazz.getAnnotations()));
                 perBeanSink.paragraph_();
                 perBeanSink.paragraph();
                 perBeanSink.text(beanDefinition.toString());
                 perBeanSink.paragraph_();
                 perBeanSink.paragraph();
-                perBeanSink.text(
-                        String.valueOf(beanDefinition.getClass().getMethod("getResource").invoke(beanDefinition)));
+                perBeanSink.text(beanDefinition.getResourceDescription());
                 perBeanSink.paragraph_();
                 perBeanSink.body_();
                 perBeanSink.close();
@@ -190,8 +177,7 @@ public class ReportingApp extends AbstractMavenReport {
             for (final String property : propertyNames) {
                 mainSink.listItem();
                 mainSink.text(property + " - ");
-                mainSink.text(environment.getClass().getMethod("getProperty", String.class)
-                        .invoke(environment, property).toString());
+                mainSink.text(environment.getProperty(property));
                 mainSink.listItem_();
                 getLog().info(String.format("Property: %s", property));
             }
