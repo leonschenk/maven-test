@@ -1,0 +1,26 @@
+pipeline {
+    agent {
+        dockerfile {
+            filename '.jenkins/Dockerfile'
+            label 'docker-jenkins-agent'
+        }
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building..'
+            }
+        }
+        stage('Test') {
+            steps {
+                echo 'Testing..'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                echo 'Deploying....'
+            }
+        }
+    }
+}
