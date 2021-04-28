@@ -4,27 +4,24 @@ pipeline {
             filename '.jenkins/Dockerfile'
         }
     }
-
-
     stages {
         stage('Build') {
             steps {
-                echo 'Building..'
-                sh 'java -version'
-                sh 'javac -version'
-
-                sh 'mvn -B --no-transfer-progress clean install'
+                echo 'Building maven project..'
+                sh 'mvn -B --no-transfer-progress -Dmaven.test.skip=true clean install'
             }
         }
         stage('Test') {
             steps {
                 echo 'Testing..'
+                sh 'mvn -B --no-transfer-progress verify'
             }
         }
         stage('Site') {
             steps {
                 echo 'Generating documentation....'
                 sh 'mvn -B --no-transfer-progress site site:stage'
+                echo 'Publish documentation to jenkins'
                 publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'target/staging', reportFiles: 'index.html', reportName: 'Maven site', reportTitles: ''])
             }
         }
