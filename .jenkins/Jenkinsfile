@@ -5,10 +5,12 @@ pipeline {
         }
     }
 
+
     stages {
         stage('Build') {
             steps {
                 echo 'Building..'
+                sh 'mvn clean install'
             }
         }
         stage('Test') {
@@ -16,9 +18,11 @@ pipeline {
                 echo 'Testing..'
             }
         }
-        stage('Deploy') {
+        stage('Site') {
             steps {
-                echo 'Deploying....'
+                echo 'Generating documentation....'
+                sh 'mvn site site:staging'
+                publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'target/staging', reportFiles: 'index.html', reportName: 'Maven site', reportTitles: ''])
             }
         }
     }
