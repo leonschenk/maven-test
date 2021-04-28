@@ -24,7 +24,7 @@ pipeline {
         stage('Site') {
             steps {
                 echo 'Generating documentation....'
-                sh 'mvn site site:staging'
+                sh 'mvn site site:stage'
                 publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'target/staging', reportFiles: 'index.html', reportName: 'Maven site', reportTitles: ''])
             }
         }
