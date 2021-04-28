@@ -13,7 +13,7 @@ pipeline {
                 sh 'java -version'
                 sh 'javac -version'
 
-                sh 'mvn -B clean install'
+                sh 'mvn -B --no-transfer-progress clean install'
             }
         }
         stage('Test') {
@@ -24,7 +24,7 @@ pipeline {
         stage('Site') {
             steps {
                 echo 'Generating documentation....'
-                sh 'mvn -B site site:stage'
+                sh 'mvn -B --no-transfer-progress site site:stage'
                 publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'target/staging', reportFiles: 'index.html', reportName: 'Maven site', reportTitles: ''])
             }
         }
