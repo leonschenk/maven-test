@@ -10,8 +10,8 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building..'
-                sh 'java --version'
-                sh 'javac --version'
+                sh 'java -version'
+                sh 'javac -version'
 
                 sh 'mvn clean install'
             }
