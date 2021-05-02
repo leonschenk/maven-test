@@ -1,7 +1,8 @@
 pipeline {
     agent {
         dockerfile {
-            filename '.jenkins/Dockerfile'
+            dir '.jenkins'
+            additionalBuildArgs  '-t klaasafentoe/jenkins-agent-maven-in-docker:latest'
         }
     }
     stages {
